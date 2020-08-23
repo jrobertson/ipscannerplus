@@ -222,6 +222,7 @@ PORTS = "
 #   http://a0.jamesrobertson.eu/dynarex/ports-wellknown.xml
 
 class IPScannerPlus
+  using ColouredText
   
   attr_reader :result
 
@@ -267,4 +268,36 @@ class IPScannerPlus
     end
 
   end
+  
+  def to_s()
+    
+    lines = @result.map do |line|
+
+      rawheader, body = *line
+
+      #header = "" % rawheader.join(' ')
+      header = [
+        rawheader[0].green,
+        rawheader[1].to_a[0].to_s.length > 1 ? rawheader[1][0].brown.bold : '',
+        rawheader[1] ? rawheader[1][1] : ''
+      ].join(' ')
+
+      head = if header.length > 75 then
+        header[0..72] + '...'
+      else
+        header
+      end
+
+      head + "\n\n" + body.map do |x|
+        desc = x[1].to_s.length > 38 ? (x[1][0..34] + '...') : x[1]
+        colour = (x[0].to_i < 1024) ? :gray : :cyan
+        "   %+14s %s" % [x[0].to_s.send(colour), desc]
+      end.join("\n") + "\n"
+
+    end
+
+    lines.length.to_s + ' devices found' + "\n\n" + lines.join("\n")    
+    
+  end
+  
 end

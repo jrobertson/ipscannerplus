@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'ipscannerplus'
-  s.version = '0.2.0'
+  s.version = '0.3.0'
   s.summary = 'Helps find out what service is running where in the network.'
   s.authors = ['James Robertson']
   s.files = Dir['lib/ipscannerplus.rb']
