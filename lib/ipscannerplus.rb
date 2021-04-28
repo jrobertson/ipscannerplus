@@ -3,6 +3,7 @@
 # file: ipscannerplus.rb
 
 require 'ipscanner'
+require 'resolv'
 require 'fast_port_scanner'
 
 
@@ -240,6 +241,7 @@ class IPScannerPlus
     end.to_h
     
     @ports = @known_ports.merge(@custom_ports)
+    @nameserver = Resolv::DNS::Config.new.lazy_initialize.nameserver_port[0][0]
     
   end
   
@@ -252,7 +254,20 @@ class IPScannerPlus
     end
     
   end
-
+  
+  def ipscan()
+    
+    @result = IPScanner.scan.map do |ip|
+      
+      deviceid = @devices[ip[/\d+$/]] || [nslookup(ip)]
+      
+      [
+        [ip, deviceid], 
+      ]      
+    end
+    
+  end
+  
   def scan()
     
     @result = IPScanner.scan.map do |ip| 
@@ -260,8 +275,10 @@ class IPScannerPlus
       ports = FastPortScanner.scan(ip, ports: (1..1000).to_a \
                                    + @custom_ports.keys.map(&:to_i))
       
+      deviceid = @devices[ip[/\d+$/]] || [nslookup(ip)]
+      
       [
-        [ip, @devices[ip[/\d+$/]]], 
+        [ip, deviceid], 
          ports.map { |port| [port, @ports[port.to_s]] }
       ]
       
@@ -277,8 +294,9 @@ class IPScannerPlus
 
       #header = "" % rawheader.join(' ')
       header = [
-        rawheader[0].green,
-        rawheader[1].to_a[0].to_s.length > 1 ? rawheader[1][0].brown.bold : '',
+        rawheader[0][/\d+$/].green,
+        rawheader[1].to_a[0].to_s.length > 1 ? rawheader[1][0].brown.bold : \
+          'unknown'.red,
         rawheader[1] ? rawheader[1][1] : ''
       ].join(' ')
 
@@ -288,16 +306,37 @@ class IPScannerPlus
         header
       end
 
-      head + "\n\n" + body.map do |x|
-        desc = x[1].to_s.length > 38 ? (x[1][0..34] + '...') : x[1]
-        colour = (x[0].to_i < 1024) ? :gray : :cyan
-        "   %+14s %s" % [x[0].to_s.send(colour), desc]
-      end.join("\n") + "\n"
+      if body then
+        
+        head + "\n\n" + body.map do |x|
+          desc = x[1].to_s.length > 38 ? (x[1][0..34] + '...') : x[1]
+          colour = (x[0].to_i < 1024) ? :gray : :cyan
+          "   %+14s %s" % [x[0].to_s.send(colour), desc]
+        end.join("\n") + "\n"
+        
+      else
+        
+        head
+        
+      end
 
     end
 
-    lines.length.to_s + ' devices found' + "\n\n" + lines.join("\n")    
+    "%s devices found on subnet %s\n\n%s " % [lines.length.to_s, 
+                                              @result[0][0][0][/\d+\.\d+\.\d+/], 
+                                              lines.join("\n") ]
     
+  end
+  
+  private
+  
+  def nslookup(ip)
+    #`nslookup #{ip}`.strip.lines.last[/(?<=\tname = ).*(?=\.$)/]
+    begin
+      Resolv::DNS.new(:nameserver => [@nameserver]).getname(ip).to_s
+    rescue
+      nil
+    end
   end
   
 end
